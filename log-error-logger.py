@@ -31,7 +31,7 @@ import time
 ###########
 # CONFIG: #
 ###########
-from log_err_cfg import *
+from error-logger-cfg import *
 
 
 ###################################
