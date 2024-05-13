@@ -4,8 +4,8 @@
 #################
 
 * The configuration file contains ip addresses and folder paths.
-        - These file directories need to be changed to reflect the deployment (ie the FSs).
-        - The present settings are for debug.
+        * These file directories need to be changed to reflect the deployment (ie the FSs).
+        * The present settings are for debug.
 
 * The congfiguration file has a reference to a .nym.pw which should contain the password to Ny (new) Mitra.
 
