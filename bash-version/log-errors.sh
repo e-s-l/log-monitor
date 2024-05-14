@@ -2,48 +2,45 @@
 
 #######################################################################################################################################
 #
-# This script given the live log file intermittently watches it and searches for ERROR matches.
-# If found the program appends the error code and messages to a file
-#
-# Designed assuming that the alarm on the other end will be triggered if the STATUS_FILE is non-empty
+# This script intermittently watches a live log file for ERROR matches. If found, it appends the error code and messages to a file.
+# It is designed assuming that an alarm on the other end will be triggered if the STATUS_FILE is non-empty.
 #
 #######################################################################################################################################
 
-#FUNCTIONS:
+# FUNCTIONS:
 
 get_config() {
 	###
 	if $DEBUG; then echo; echo "read_config_variables"; echo; fi
 	###
-	# read in variables from configuration file:
-	. ./monitor.config  # source variables from config file
+	# Read in variables from configuration file:
+	. ./log-errors.cfg  # Source variables from config file
 	###
-	echo "Remote Host: $REMOTE_HOST"
-	echo "Status file: $STATUS_FILE"
-	echo "Time till timeout: $TIMEOUT_TIME seconds"
-
-	USER="oper"
-	SERVER="10.0.109.38"
-
-	if [ "$1" == "nn" ]
-	then
-		echo "north FS"
-	elif [ "$1" == "ns" ]
-	then
-		echo "south FS"
+	if [ "$1" == "nn" ]; then
+		SERVER=$FS_NN_IP
+	elif [ "$1" == "ns" ]; then
+		SERVER=$FS_NS_IP
 	fi
 
+	if $DEBUG; then
+		echo "Status file: $STATUS_FILE"
+		echo "Time till timeout: $TIMEOUT_TIME seconds"
+		echo "Remote User: $USER"
+		echo "FS_IP: $SERVER"
+	fi
 }
 
 finisher() {
 	###
 	if $DEBUG; then echo; echo "finisher"; echo; fi
 	###
-	# properly kill the stream and tail processes
-	kill "$(pgrep -f "$FIND_ERRORS")" &>/dev/null	# & means...
+	# Properly kill the stream and tail processes
+	#pgrep -f "$FIND_ERRORS" | xargs -r kill &>/dev/null
+	# Or...
+	kill "$(pgrep -f "$FIND_ERRORS")" &>/dev/null
 }
 
-# catch signals and close correctly
+# Catch signals and close correctly
 trap "finisher; exit 0" SIGINT SIGTERM
 
 main() {
@@ -51,52 +48,47 @@ main() {
 	if $DEBUG; then echo; echo "main"; echo; fi
 	###
     # Assign positional parameters to variables (for clarity):
-	EXP=$1
-	TL=$2
+	EXP="$1"
+	TL="$2"
 	#
 	get_config "$TL"
 	#
-	#File names:
+	# File names:
 	EXP_LOG="${EXP}${TL}.log"
-	echo "Expect log file: ${EXP_LOG}" ; echo
+	###
+	if $DEBUG; then echo; echo "Expect log file: ${EXP_LOG}" ; echo; fi
+	###
+	# Log file with path:
 	LOG_FILE="/usr2/log/$EXP_LOG"
 
-	#Log File Location...
-	#Status File Location...
-
-	if ssh "$USER@$SERVER" [ -f "$LOG_FILE" ]
-	then
-		# empty (or create) the status file
+	if ssh "${USER}@${SERVER}" "[ -f \"$LOG_FILE\" ]"; then
+		if $DEBUG; then echo; echo "Found log!"; echo; fi
+		# Empty (or create) the status file
 		echo -n > "$STATUS_FILE"
-		# start tailing the log file:
-
-		FIND_ERRORS="$(ssh "$USER@$SERVER" "timeout $TIMEOUT_TIME tail -f "$LOG_FILE" | egrep "ERROR"")"
-
-        if "$FIND_ERRORS"
-        then
-            echo "Monitoring Log File for errors"
-            while read -r line
-            do
-                if ! grep -Fxq "$line" deactivated_errors.txt       # grep -Fxq ...
-                then                                                # check in list of deactivated errors.
-                    "$line">> "$STATUS_FILE"
-                    ###
-					if $DEBUG; then echo; echo "ERROR!"; echo; fi
+		# Start tailing the log file:
+		ssh "${USER}@${SERVER}" "timeout ${TIMEOUT_TIME} tail -f \"${LOG_FILE}\"" | \
+		while read -r line; do
+			if echo "$line" | grep -q "ERROR"; then								  #[ "$line | egrep 'ERROR'" ]; then
+				if ! grep -Fxq "$line" log-errors.cfg; then
+					echo "$line" >> "$STATUS_FILE"
 					###
-                fi
-            done < <("$FIND_ERRORS")
-        else
-            # catch errors...
-            exit_code=$?
-            if [ "$exit_code" -eq 124 ]
-            then
-                echo "Timeout!"
-                echo "Warning. Log file timed out.">> "$STATUS_FILE"
-                finisher
-            fi
-        fi
+					if $DEBUG; then echo "ERROR!"; fi
+					###
+				fi
+			fi
+		done
+							# hmm
+		# Catch errors...
+		exit_code=$?
+		if [ "$exit_code" -eq 124 ]; then
+			if $DEBUG; then echo; echo "Timeout!"; echo; fi
+			echo "Warning. Log file timed out." >> "$STATUS_FILE"
+			finisher
+		fi
+
+
 	else
-		echo "Log file $LOG_FILE not found!"
+		if $DEBUG; then echo; echo "Log file $LOG_FILE not found!"; echo; fi
 		exit 2
 	fi
 
@@ -106,28 +98,22 @@ main() {
 }
 
 #######################################################################################################################################
-
+###
 DEBUG=false
 
-#CHECK POSITIONAL PARAMETERS:
-if [ "$#" -eq 3 ] && [ "$3" == "-d" ]		# recall: $# = len(#@)
-then
+# Check positional parameters:
+if [ "$#" -eq 3 ] && [ "$3" == "-d" ]; then		# Recall: $# = len(#@)
 	echo "Debug Mode: ON"
 	DEBUG=true
-elif ! [ $# = 2 ]
-then
-	echo "This script it to be run like: $0 EXP TL"
+elif ! [ $# = 2 ]; then
+	echo "This script should be run like: $0 EXP TL"
 	exit 1
 fi
-
-if ! ([ "$2" == "nn" ] || [ "$2" == "ns" ])	# hmmm
-then
+###
+if ! ([ "$2" == "nn" ] || [ "$2" == "ns" ]); then
 	echo "Are you not using NN or NS ?!"
 	exit 1
 fi
 
 main "$1" "$2"
-
 #######################################################################################################################################
-
-
