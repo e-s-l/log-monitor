@@ -38,7 +38,7 @@ finisher() {
 	# Properly kill the stream and tail processes
 	#pgrep -f "$FIND_ERRORS" | xargs -r kill &>/dev/null
 	# Or...
-	kill "$(pgrep -f "$FIND_ERRORS")" &>/dev/null	#otherwise tail will get running...
+	kill "$(pgrep -f "$FIND_ERRORS")" &>/dev/null	#otherwise tail will keep running...
 	exit 0
 }
 
@@ -80,8 +80,8 @@ main() {
 			fi
 		done
 		# Catch errors...
-		exit_code=${PIPESTATUS[0]}  #$?						# to catch errors thrown by timeout.
-		if [ "$exit_code" -eq 124 ]; then					# so we know if it timeout
+		exit_code=${PIPESTATUS[0]}  #$?						# to catch errors thrown by timeout.    #THIS NEEDS MORE WORK!
+		if [ "$exit_code" -eq 124 ]; then					# so we know if it timed-out
 			if $DEBUG; then echo; echo "Timeout!"; echo; fi
 			echo "Warning. Log file timed out." >> "$STATUS_FILE"
 		elif [ "$exit_code" -ne 0 ]; then					# other non-timeout related exit codes
