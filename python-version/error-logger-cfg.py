@@ -10,7 +10,7 @@ errfile = "log-error-status.txt"
 #then rsync'd to the watchdog system
 
 ###########
-nym_ip = "oper@10.0.109.133"
+nym_ip = ""
 ###########
 #THE USER AND IP ADDRESS OF THE SERVER
 #that is running the watchdog alarm system
