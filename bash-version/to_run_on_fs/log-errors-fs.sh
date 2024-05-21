@@ -31,20 +31,19 @@ finisher() {
 	###
 	if $DEBUG; then echo "finisher()"; fi
 	###
-	# Properly kill the stream and tail processes
-	kill "$PID" &>/dev/null	#otherwise tail will keep running...
-	echo "helo"
-    #exit 0
+	# Properly kill the tail processes
+	kill "$PID" &>/dev/null							#otherwise tail will keep running...
 }
 
 # Catch signals and close correctly
 trap "finisher; exit 0" SIGINT
+trap "exit 0" SIGTERM
 
 sync_status_to_alarm_system() {
 	###
 	if $DEBUG; then echo "sync_status_to_alarm_system()"; fi
 	# RSYNC STATUS FILE TO NY MITRA
-	rsync "${STATUS_FILE}" "${NM_USER}@${NM_HOST}:${ALARM_SYSTEM_DIRECTORY}"
+	#rsync "${STATUS_FILE}" "${NM_USER}@${NM_HOST}:${ALARM_SYSTEM_DIRECTORY}"
 }
 
 main() {
@@ -53,13 +52,14 @@ main() {
 	###
 
 	PID=$$
-    echo "PID $PID"
+	if $DEBUG; then echo "PID $PID"; fi
 
-	#
-	get_config #"$TL"
+	###
+	get_config
 
 	# Log file with path:
-	LOG_FILE="/usr2/log/${1}.log"
+	#LOG_FILE="/usr2/log/${1}.log"
+	LOG_FILE="${1}.log"
 
 	###
 	if $DEBUG; then echo "Expect log file: ${LOG_FILE}"; fi
@@ -114,7 +114,7 @@ if [ "$#" -eq 1 ] && [ "$1" == "-d" ]; then		# Recall: $# = len(#@)
 	DEBUG=true
 fi
 ###
-main $(lognm)
+main $(./lognm)
 # lognm is a c script on FS that prints to standard output the current log name.... (generally includes the telescope code)
 
 #######################################################################################################################################
