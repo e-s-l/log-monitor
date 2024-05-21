@@ -36,7 +36,7 @@ finisher() {
 }
 
 # Catch signals and close correctly
-trap "finisher; exit 0" SIGINT
+trap "finisher" SIGINT
 trap "exit 0" SIGTERM
 
 sync_status_to_alarm_system() {
@@ -70,29 +70,27 @@ main() {
 		# Empty (or create) the status file
 		echo -n > "$STATUS_FILE"
 
-		timeout "${TIMEOUT_TIME}" tail -f "${LOG_FILE}" --pid="$PID" | \
-		while read -r line; do
-			if echo "$line" | grep -q "ERROR"; then				# if a line in the tail has the word error
-				if ! grep -Fxq "$line" log-errors.cfg; then		# & if the line is NOT in the .cfg file (note this might be too strict...)
-					echo "$line" >> "$STATUS_FILE"				# then print to status file.
-					sync_status_to_alarm_system					# RSYNC STATUS FILE TO NY MITRA
+		tail -f "${LOG_FILE}" --pid="$PID" | \
+		while true; do
+			if ! read -t "${TIMEOUT_TIME}" -r line; then
+				if $DEBUG; then echo "TIMEOUT!"; fi
+				echo "Warning. Log file timed out." >> "$STATUS_FILE"	# so we know if it timed-out
+				sync_status_to_alarm_system
+				break
+			fi
+			if echo "$line" | grep -q "ERROR"; then						# if a line in the tail has the word error
+				if ! grep -Fxq "$line" log-errors.cfg; then				# & if the line is NOT in the .cfg file (note this might be too strict...)
+					echo "$line" >> "$STATUS_FILE"						# then print to status file.
+					sync_status_to_alarm_system							# RSYNC STATUS FILE TO NY MITRA
 					###
 					if $DEBUG; then echo "ERROR!"; fi
 					###
 				fi
 			fi
 		done
-		# Catch program errors...
-		exit_code=${PIPESTATUS[0]}  #$?							# to catch errors thrown by timeout.
-		if [ "$exit_code" -eq 124 ]; then						# so we know if it timed-out
-			if $DEBUG; then echo "Timeout!"; fi
-			echo "Warning. Log file timed out." >> "$STATUS_FILE"
-		elif [ "$exit_code" -ne 0 ]; then						# other non-timeout related exit codes
-			if $DEBUG; then echo "Error occurred while excuting tail or SSH."; echo; fi
-		fi
+
 		###
 		echo "Exiting Log Error Monitor." >> "$STATUS_FILE"		# we're outta here
-		sync_status_to_alarm_system								# RSYNC STATUS FILE TO NY MITRA
 		finisher
 		###
 
