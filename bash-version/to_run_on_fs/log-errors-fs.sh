@@ -15,25 +15,26 @@
 
 get_config() {
 	###
-	if $DEBUG; then echo "get_config"; fi
+	if $DEBUG; then echo "get_config()"; fi
 	###
-	# Read in variables from configuration file:
-	. ./log-errors.cfg  # Source variables from config file
+	# Read in (source) variables from configuration file:
+	. ./log-errors.cfg
 	###
-
-
 	if $DEBUG; then
 		echo "Status file: $STATUS_FILE"
 		echo "Time till timeout: $TIMEOUT_TIME seconds"
+		echo "User of host: $NM_USER"
+		echo "Address of host: $NM_HOST"
+		echo "Directory of alarm system: $ALARM_SYSTEM_DIRECTORY"
 	fi
 }
 
 finisher() {
 	###
-	if $DEBUG; then echo "finisher"; fi
+	if $DEBUG; then echo "finisher()"; fi
 	###
 	# Properly kill the stream and tail processes
-	kill "$(pgrep -f "$FIND_ERRORS")" &>/dev/null	#otherwise tail will keep running...
+	kill "$(pgrep -f "$FIND_ERRORS")" &>/dev/null	#otherwise tail will keep running...		#eeek
 	exit 0
 }
 
@@ -41,13 +42,15 @@ finisher() {
 trap "finisher; exit 0" SIGINT SIGTERM
 
 sync_status_to_alarm_system() {
-# RSYNC STATUS FILE TO NY MITRA
+if $DEBUG; then echo "sync_status_to_alarm_system()"; fi
 
+# RSYNC STATUS FILE TO NY MITRA
+rsync "${STATUS_FILE} ${NM_USER}@${NM_HOST}:${ALARM_SYSTEM_DIRECTORY}"
 }
 
 main() {
 	###
-	if $DEBUG; then echo "main"; fi
+	if $DEBUG; then echo "main()"; fi
 	###
 	#
 	get_config #"$TL"
@@ -55,10 +58,10 @@ main() {
 	# Log file with path:
 	LOG_FILE="/usr2/log/${1}.log"
 	###
-	if $DEBUG; then echo "Expect log file: ${EXP_LOG}"; fi
+	if $DEBUG; then echo "Expect log file: ${LOG_FILE}"; fi
 	###
 
-	if [ -f \"$LOG_FILE\" ]; then		#check existence of log file
+	if [ -f "$LOG_FILE" ]; then		#check existence of log file
 		if $DEBUG; then echo "Found log!"; fi
 		# Empty (or create) the status file
 		echo -n > "$STATUS_FILE"
@@ -108,9 +111,7 @@ if [ "$#" -eq 1 ] && [ "$1" == "-d" ]; then		# Recall: $# = len(#@)
 	DEBUG=true
 fi
 ###
-
-main 'lognm' ns
+main $(lognm)
 # lognm is a c script on FS that prints to standard output the current log name.... (generally includes the telescope code)
-# Double check the telescope name above corresponds to the field system you are on... probably not necessary...
 
 #######################################################################################################################################

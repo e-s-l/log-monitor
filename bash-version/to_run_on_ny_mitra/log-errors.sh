@@ -38,7 +38,7 @@ finisher() {
 	# Properly kill the stream and tail processes
 	#pgrep -f "$FIND_ERRORS" | xargs -r kill &>/dev/null
 	# Or...
-	kill "$(pgrep -f "$FIND_ERRORS")" &>/dev/null	#otherwise tail will keep running...
+	kill "$(pgrep -f "$FIND_ERRORS")" &>/dev/null	#otherwise tail will keep running...		#THIS ISNT RIGHT!
 	exit 0
 }
 
