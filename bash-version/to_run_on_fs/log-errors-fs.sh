@@ -34,29 +34,33 @@ finisher() {
 	if $DEBUG; then echo "finisher()"; fi
 	###
 	# Properly kill the stream and tail processes
-	kill "$(pgrep -f "$FIND_ERRORS")" &>/dev/null	#otherwise tail will keep running...		#eeek
-	exit 0
+	kill "$TAIL_PID" &>/dev/null	#otherwise tail will keep running...		#eeek
+	exit 0	# this won't be reached since PID is for both TAIL and MAIN
 }
 
 # Catch signals and close correctly
 trap "finisher; exit 0" SIGINT SIGTERM
 
 sync_status_to_alarm_system() {
-if $DEBUG; then echo "sync_status_to_alarm_system()"; fi
-
-# RSYNC STATUS FILE TO NY MITRA
-rsync "${STATUS_FILE} ${NM_USER}@${NM_HOST}:${ALARM_SYSTEM_DIRECTORY}"
+	if $DEBUG; then echo "sync_status_to_alarm_system()"; fi
+	# RSYNC STATUS FILE TO NY MITRA
+	rsync "${STATUS_FILE}" "${NM_USER}@${NM_HOST}:${ALARM_SYSTEM_DIRECTORY}"
 }
 
 main() {
 	###
 	if $DEBUG; then echo "main()"; fi
 	###
+
+	PID=$$
+    echo "PID $PID"
+
 	#
 	get_config #"$TL"
 
 	# Log file with path:
-	LOG_FILE="/usr2/log/${1}.log"
+	#LOG_FILE="/usr2/log/${1}.log"
+	LOG_FILE="${1}.log"
 	###
 	if $DEBUG; then echo "Expect log file: ${LOG_FILE}"; fi
 	###
@@ -65,8 +69,8 @@ main() {
 		if $DEBUG; then echo "Found log!"; fi
 		# Empty (or create) the status file
 		echo -n > "$STATUS_FILE"
-		# Start tailing the log file:
-		timeout ${TIMEOUT_TIME} tail -f "${LOG_FILE}" | \
+
+		timeout "${TIMEOUT_TIME}" tail -f "${LOG_FILE}" --pid="$PID" | \
 		while read -r line; do
 			if echo "$line" | grep -q "ERROR"; then				# if a line in the tail has the word error
 				if ! grep -Fxq "$line" log-errors.cfg; then		# & if the line is NOT in the .cfg file (note this might be too strict...)
@@ -79,12 +83,11 @@ main() {
 			fi
 		done
 		# Catch program errors...
-		exit_code=${PIPESTATUS[0]}  #$?						# to catch errors thrown by timeout.
-		if [ "$exit_code" -eq 124 ]; then					# so we know if it timed-out
+		exit_code=${PIPESTATUS[0]}  #$?							# to catch errors thrown by timeout.
+		if [ "$exit_code" -eq 124 ]; then						# so we know if it timed-out
 			if $DEBUG; then echo "Timeout!"; fi
 			echo "Warning. Log file timed out." >> "$STATUS_FILE"
-			sync_status_to_alarm_system
-		elif [ "$exit_code" -ne 0 ]; then					# other non-timeout related exit codes
+		elif [ "$exit_code" -ne 0 ]; then						# other non-timeout related exit codes
 			if $DEBUG; then echo "Error occurred while excuting tail or SSH."; echo; fi
 		fi
 		###
