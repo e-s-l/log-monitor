@@ -2,13 +2,11 @@
 
 #######################################################################################################################################
 #
-# This script intermittently watches a live log file for ERROR matches. If found, it appends the error code and messages to a file.
-# It is designed assuming that an alarm system will be triggered if the STATUS_FILE is non-empty.
-# That is, alarm are ok if status file does not exist or is empty.
-# ie Run on FS push status to Ny Mitra Alarm System.
-#
-# THIS VERSION RELIES ON FS FUNCTIONALITY OF KNOWNING THE LATEST LOG FILE SO THE ABOVE IS UNNECESSARY
-#
+# This script watches a live log file for ERROR matches. If found, it appends the error code and messages to a file.
+# It is designed assuming that an alarm system will be triggered if the STATUS_FILE is non-empty. That is, no alarm if status file does not exist or is empty.
+# Runs on FS pushes status file to the  Ny Mitra Alarm System.
+# This version relies on FS function to get the present/current log file.
+# 
 #######################################################################################################################################
 
 # FUNCTIONS:
@@ -34,14 +32,16 @@ finisher() {
 	if $DEBUG; then echo "finisher()"; fi
 	###
 	# Properly kill the stream and tail processes
-	kill "$TAIL_PID" &>/dev/null	#otherwise tail will keep running...		#eeek
-	exit 0	# this won't be reached since PID is for both TAIL and MAIN
+	kill "$PID" &>/dev/null	#otherwise tail will keep running...
+	echo "helo"
+    #exit 0
 }
 
 # Catch signals and close correctly
-trap "finisher; exit 0" SIGINT SIGTERM
+trap "finisher; exit 0" SIGINT
 
 sync_status_to_alarm_system() {
+	###
 	if $DEBUG; then echo "sync_status_to_alarm_system()"; fi
 	# RSYNC STATUS FILE TO NY MITRA
 	rsync "${STATUS_FILE}" "${NM_USER}@${NM_HOST}:${ALARM_SYSTEM_DIRECTORY}"
@@ -59,8 +59,8 @@ main() {
 	get_config #"$TL"
 
 	# Log file with path:
-	#LOG_FILE="/usr2/log/${1}.log"
-	LOG_FILE="${1}.log"
+	LOG_FILE="/usr2/log/${1}.log"
+
 	###
 	if $DEBUG; then echo "Expect log file: ${LOG_FILE}"; fi
 	###
