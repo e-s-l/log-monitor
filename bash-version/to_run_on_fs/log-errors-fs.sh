@@ -15,8 +15,7 @@ get_config() {
 	###
 	if $DEBUG; then echo "get_config()"; fi
 	###
-	# Read in (source) variables from configuration file:
-	. ./log-errors.cfg
+	. ./log-errors.cfg 												# read in (source) variables from configuration file
 	###
 	if $DEBUG; then
 		echo "Status file: $STATUS_FILE"
@@ -32,7 +31,7 @@ finisher() {
 	if $DEBUG; then echo "finisher()"; fi
 	###
 	# Properly kill the tail processes
-	kill "$PID" &>/dev/null							#otherwise tail will keep running...
+	kill "$PID" &>/dev/null											# triggers SIGTERM, need since otherwise tail will keep running...
 }
 
 # Catch signals and close correctly
@@ -43,33 +42,28 @@ sync_status_to_alarm_system() {
 	###
 	if $DEBUG; then echo "sync_status_to_alarm_system()"; fi
 	# RSYNC STATUS FILE TO NY MITRA
-	#rsync "${STATUS_FILE}" "${NM_USER}@${NM_HOST}:${ALARM_SYSTEM_DIRECTORY}"
+	rsync "${STATUS_FILE}" "${NM_USER}@${NM_HOST}:${ALARM_SYSTEM_DIRECTORY}"
 }
 
 main() {
 	###
 	if $DEBUG; then echo "main()"; fi
 	###
-
 	PID=$$
 	if $DEBUG; then echo "PID $PID"; fi
-
 	###
 	get_config
 
 	# Log file with path:
-	#LOG_FILE="/usr2/log/${1}.log"
-	LOG_FILE="${1}.log"
+	LOG_FILE="/usr2/log/${1}.log"
 
 	###
 	if $DEBUG; then echo "Expect log file: ${LOG_FILE}"; fi
 	###
-
-	if [ -f "$LOG_FILE" ]; then		#check existence of log file
+	if [ -f "$LOG_FILE" ]; then											# check existence of log file
 		if $DEBUG; then echo "Found log!"; fi
 		# Empty (or create) the status file
 		echo -n > "$STATUS_FILE"
-
 		tail -f "${LOG_FILE}" --pid="$PID" | \
 		while true; do
 			if ! read -t "${TIMEOUT_TIME}" -r line; then
@@ -88,31 +82,23 @@ main() {
 				fi
 			fi
 		done
-
 		###
-		echo "Exiting Log Error Monitor." >> "$STATUS_FILE"		# we're outta here
-		finisher
+		finisher # we're outta here
 		###
-
 	else
 		if $DEBUG; then echo "Log file $LOG_FILE not found!"; fi
-		exit 2													# couldn't find the log file
+		exit 2															# couldn't find the log file
 	fi
-
 }
 
 #######################################################################################################################################
-###
 DEBUG=false
-
-# Check positional parameters:
-# -d switch to turn on debug.
-if [ "$#" -eq 1 ] && [ "$1" == "-d" ]; then		# Recall: $# = len(#@)
+# Check -d switch to turn on debug:
+if [ "$#" -eq 1 ] && [ "$1" == "-d" ]; then								# recall: $# = len(#@)
 	echo "Debug Mode: ON"
 	DEBUG=true
 fi
 ###
-main $(./lognm)
-# lognm is a c script on FS that prints to standard output the current log name.... (generally includes the telescope code)
+main $(lognm) 				# lognm is a c script on FS that prints to standard output the current log name.... (generally includes the telescope code)
 
 #######################################################################################################################################
